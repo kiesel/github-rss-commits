@@ -12,6 +12,10 @@
     'xml.rdf.RDFNewsFeed'
   );
 
+  /**
+   * RSS Scriptlet
+   *
+   */
   class RssScriptlet extends HttpScriptlet {
     private $owner = NULL;
     private $repo  = NULL;
@@ -19,9 +23,8 @@
     /**
      * Parse owner & repo from URL
      *
-     * @param   type name
-     * @return  type
-     * @throws  type description
+     * @param   peer.URL url
+     * @throws  lang.IllegalArgumentException in case path could not be parsed
      */
     private function parseOwnerRepoFromURL(URL $url) {
       $path= $url->getPath();
@@ -53,14 +56,26 @@
         $this->repo, 
         DateUtil::addDays(Date::now(), -7)
       );
+      foreach ($commits as $index => $commit) {
+        $newcommit= $api->commitBySha($this->owner, $this->repo, $commit['sha']);
+
+        // Replace original commit info
+        $commits[$index]= $newcommit;
+        break;
+      }
 
       $tree= $this->commitsToRss($commits);
 
       $response->setContentType('application/rss+xml');
       $response->write($tree->getSource(0));
-
     }
 
+    /**
+     * Adds a list of commits as rss items
+     *
+     * @param  array  $commits
+     * @return xml.rdf.RDFNewsFeed
+     */
     private function commitsToRss(array $commits) {
       $rss= new RDFNewsFeed();
       $rss->setChannel(
@@ -77,15 +92,85 @@
       return $rss;
     }
 
+    /**
+     * Extract title out of message
+     *
+     * @param   string message
+     * @return  string
+     */
+    private function titleIn($message) {
+      if (FALSE !== ($pos= strpos($message, "\n"))) {
+        return substr($message, 0, $pos);
+      }
+
+      return $message;
+    }
+
+    /**
+     * Add commit to rss
+     *
+     * @param xml.rdf.RDFNewsFeed $feed
+     * @param array $commit
+     */
     private function addCommitTo(RDFNewsFeed $feed, $commit) {
+      Logger::getInstance()->getCategory()->debug('Processing', $commit);
+
       $feed->addItem(
-        $commit['commit']['message'],
+        $this->titleIn($commit['commit']['message']),
         $commit['commit']['url'],
-        '<p>Authored by '.$commit['commit']['author']['name'].'<br/>'.
-        '<small>Committed by '.$commit['commit']['committed']['name'].' on '.$commit['commit']['date'].'</small>'.
-        '</p><p>'.$commit['commit']['message'].'</p>',
+        $this->prepareCommitDetails($commit),
         new Date($commit['author']['date'])
       );
+    }
+
+    /**
+     * Prepare body of commit details
+     *
+     * @param   array commit
+     * @return  string
+     */
+    private function prepareCommitDetails($commit) {
+      $s= '<p><img src="'.$commit['author']['avatar_url'].'"/> Authored by '.$commit['commit']['author']['name'].'<br/>'.
+        '<small>Committed by '.$commit['commit']['committer']['name'].' on '.$commit['commit']['committer']['date'].'</small></p>'.
+        '<p><pre>'.nl2br($commit['commit']['message']).'</pre></p>'.
+        '<p>Overall stats: '.sprintf('%d additions, %d deletions, %d total',
+          $commit['stats']['additions'],
+          $commit['stats']['deletions'],
+          $commit['stats']['total']).'</p>';
+
+      $s.= '<h2>File details</h2>';
+      foreach ($commit['files'] as $file) {
+        $s.= '<h3><a href="'.$file['raw_url'].'">'.$file['filename'].'</a></h3>';
+        $s.= '<p>'.$this->formatPatch($file['patch']).'</p>';
+      }
+
+      return $s;
+    }
+
+    /**
+     * Format patch for HTML
+     *
+     * @param   string patch
+     * @return  string
+     */
+    private function formatPatch($patch) {
+      $s= '<pre style="white-space: pre">';
+      foreach (explode(PHP_EOL, $patch) as $line) {
+        $style= '';
+        if ('+' == $line{0}) {
+          $style= 'green';
+        } else if ('-' == $line{0}) {
+          $style= 'red';
+        }
+
+        if ($style) {
+          $s.= '<div style="background-color: '.$style.'">'.$line.'</div>';
+        } else {
+          $s.= $line.'<br/>';
+        }
+      }
+
+      return $s.'</pre>';
     }
   }
 ?>
