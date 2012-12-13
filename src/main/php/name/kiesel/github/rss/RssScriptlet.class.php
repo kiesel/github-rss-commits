@@ -117,7 +117,11 @@
 
       $feed->addItem(
         $this->titleIn($commit['commit']['message']),
-        $commit['commit']['url'],
+        sprintf('https://github.com/%s/%s/commit/%s',
+          $this->owner,
+          $this->repo,
+          $commit['sha']
+        ),
         $this->prepareCommitDetails($commit),
         new Date($commit['author']['date'])
       );
@@ -130,8 +134,10 @@
      * @return  string
      */
     private function prepareCommitDetails($commit) {
-      $s= '<p><img src="'.$commit['author']['avatar_url'].'"/> Authored by '.$commit['commit']['author']['name'].'<br/>'.
-        '<small>Committed by '.$commit['commit']['committer']['name'].' on '.$commit['commit']['committer']['date'].'</small></p>'.
+      $s= '<h1><img src="'.$commit['author']['avatar_url'].'" align="left" hspace="2" vspace="2"/>'.
+        $this->titleIn($commit['commit']['message']).'<br clear="all"/></h1>'.
+        '<h2>'.$this->changedBy('Authored by', $commit['commit']['author'], $commit['author']).', '.
+        $this->changedBy('committed by', $commit['commit']['committer'], $commit['committer']).'</h2>'.
         '<p><pre>'.nl2br($commit['commit']['message']).'</pre></p>'.
         '<p>Overall stats: '.sprintf('%d additions, %d deletions, %d total',
           $commit['stats']['additions'],
@@ -148,14 +154,26 @@
     }
 
     /**
+     * Add changed by
+     *
+     * @param string
+     * @param <string,string> info
+     * @param <string,string> user
+     * @return string
+     */
+    private function changedBy($intro, $info, $user) {
+      return $intro.' <a href="https://github.com/'.$user['login'].'">'.$info['name'].'</a> on '.$info['date'];
+    }
+
+    /**
      * Format patch for HTML
      *
      * @param   string patch
      * @return  string
      */
     private function formatPatch($patch) {
-      $s= '<pre style="white-space: pre">';
-      foreach (explode(PHP_EOL, $patch) as $line) {
+      $s= '<pre>';
+      foreach (explode("\n", $patch) as $line) {
         $style= '';
         if ('+' == $line{0}) {
           $style= 'green';
@@ -164,13 +182,13 @@
         }
 
         if ($style) {
-          $s.= '<div style="background-color: '.$style.'">'.$line.'</div>';
+          $s.= '<font color="'.$style.'">'.$line.'</font><br/>';
         } else {
           $s.= $line.'<br/>';
         }
       }
 
-      return $s.'</pre>';
+      return $s.'</pre><hr/>';
     }
   }
 ?>
