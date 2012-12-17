@@ -1,0 +1,25 @@
+<img src="{{author.avatar_url}}" align="left" hspacing="5" vspacing="5"/>
+<h1> {{commit.title}} </h1>
+<p>written by <a href="https://github.com/{{author.login}}">{{commit.author.name}}</a> on
+{{commit.author.date}},
+committed by <a href="https://github.com/{{committer.login}}">{{commit.committer.name}}</a> on
+{{commit.committer.date}}
+</p>
+
+{{#have_files}}
+<h2>Files</h2>
+{{/have_files}}
+{{#files}}
+  <h3><a href="{{raw_url}}">{{filename}}</a></h3>
+  <p>{{additions}} additions, {{deletions}} deletions.</p>
+  <pre>
+    {{#patchlines}}{{!
+      }}{{#mode}}<font color="{{mode}}">{{content}}</font>{{/mode}}{{!
+      }}{{^mode}}{{content}}{{/mode}}
+    {{/patchlines}}
+  </pre>
+  <hr/>
+{{/files}}
+{{^files}}
+No files have been changed.
+{{/files}}

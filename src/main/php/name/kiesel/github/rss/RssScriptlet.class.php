@@ -5,11 +5,14 @@
  */
 
   uses(
+    'lang.ResourceProvider',
     'name.kiesel.github.GitHubApiFacade',
     'scriptlet.HttpScriptlet',
     'util.Date',
     'util.DateUtil',
-    'xml.rdf.RDFNewsFeed'
+    'xml.rdf.RDFNewsFeed',
+    'io.File',
+    'io.FileUtil'
   );
 
   /**
@@ -19,7 +22,16 @@
   class RssScriptlet extends HttpScriptlet {
     private $owner = NULL;
     private $repo  = NULL;
-    
+
+    /**
+     * Constructor
+     *
+     */
+    public function __construct() {
+      // HACK:
+      require_once($_SERVER['DOCUMENT_ROOT'].'/../vendor/autoload.php');
+    }
+
     /**
      * Parse owner & repo from URL
      *
@@ -113,82 +125,61 @@
      * @param array $commit
      */
     private function addCommitTo(RDFNewsFeed $feed, $commit) {
+      $commit['commit']['title']= $this->titleIn($commit['commit']['message']);
+      $commit= $this->prepareCommit($commit);
       Logger::getInstance()->getCategory()->debug('Processing', $commit);
 
       $feed->addItem(
-        $this->titleIn($commit['commit']['message']),
+        $commit['commit']['title'],
         sprintf('https://github.com/%s/%s/commit/%s',
           $this->owner,
           $this->repo,
           $commit['sha']
         ),
-        $this->prepareCommitDetails($commit),
+        $this->renderCommitDetails($commit),
         new Date($commit['author']['date'])
       );
     }
 
     /**
-     * Prepare body of commit details
+     * Render body of commit details
      *
      * @param   array commit
      * @return  string
      */
-    private function prepareCommitDetails($commit) {
-      $s= '<h1><img src="'.$commit['author']['avatar_url'].'" align="left" hspace="2" vspace="2"/>'.
-        $this->titleIn($commit['commit']['message']).'<br clear="all"/></h1>'.
-        '<h2>'.$this->changedBy('Authored by', $commit['commit']['author'], $commit['author']).', '.
-        $this->changedBy('committed by', $commit['commit']['committer'], $commit['committer']).'</h2>'.
-        '<p><pre>'.nl2br($commit['commit']['message']).'</pre></p>'.
-        '<p>Overall stats: '.sprintf('%d additions, %d deletions, %d total',
-          $commit['stats']['additions'],
-          $commit['stats']['deletions'],
-          $commit['stats']['total']).'</p>';
-
-      $s.= '<h2>File details</h2>';
-      foreach ($commit['files'] as $file) {
-        $s.= '<h3><a href="'.$file['raw_url'].'">'.$file['filename'].'</a></h3>';
-        $s.= '<p>'.$this->formatPatch($file['patch']).'</p>';
-      }
-
-      return $s;
+    private function renderCommitDetails($commit) {
+      $mustache= new Mustache_Engine(array(
+      ));
+      return $mustache->render(
+        FileUtil::getContents(new File('res://mustache/commitdetails.mustache')),
+        $commit
+      );
     }
 
     /**
-     * Add changed by
+     * Prepare commit
      *
-     * @param string
-     * @param <string,string> info
-     * @param <string,string> user
-     * @return string
+     * @param   type name
+     * @return  type
+     * @throws  type description
      */
-    private function changedBy($intro, $info, $user) {
-      return $intro.' <a href="https://github.com/'.$user['login'].'">'.$info['name'].'</a> on '.$info['date'];
-    }
-
-    /**
-     * Format patch for HTML
-     *
-     * @param   string patch
-     * @return  string
-     */
-    private function formatPatch($patch) {
-      $s= '<pre>';
-      foreach (explode("\n", $patch) as $line) {
-        $style= '';
-        if ('+' == $line{0}) {
-          $style= 'green';
-        } else if ('-' == $line{0}) {
-          $style= 'red';
+    private function prepareCommit($commit) {
+      foreach ($commit['files'] as $index => $file) {
+        $lines= array();
+        foreach (explode("\n", $file['patch']) as $line) {
+          if ('-' == $line{0}) {
+            $lines[]= array('mode' => 'red', 'content' => $line);
+          } else if ('+' == $line{0}) {
+            $lines[]= array('mode' => 'green', 'content' => $line);
+          } else {
+            $lines[]= array('content' => $line);
+          }
         }
 
-        if ($style) {
-          $s.= '<font color="'.$style.'">'.$line.'</font><br/>';
-        } else {
-          $s.= $line.'<br/>';
-        }
+        $commit['files'][$index]['patchlines']= $lines;
       }
 
-      return $s.'</pre><hr/>';
+      return $commit;
     }
   }
 ?>
