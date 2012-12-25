@@ -7,6 +7,7 @@
   uses(
     'lang.ResourceProvider',
     'name.kiesel.github.GitHubApiFacade',
+    'name.kiesel.github.mustache.GitHubCommitView',
     'scriptlet.HttpScriptlet',
     'util.Date',
     'util.DateUtil',
@@ -60,6 +61,7 @@
      * @param   scriptlet.HttpScriptletResponse
      */
     public function doGet($request, $response) {
+
       $this->parseOwnerRepoFromURL($request->getURL());
 
       $api= new GitHubApiFacade();
@@ -68,8 +70,9 @@
         $this->repo, 
         DateUtil::addDays(Date::now(), -7)
       );
+      Logger::getInstance()->getCategory()->debug($commits);
       foreach ($commits as $index => $commit) {
-        $newcommit= $api->commitBySha($this->owner, $this->repo, $commit['sha']);
+        $newcommit= $api->commitBySha($this->owner, $this->repo, $commit->getSha());
 
         // Replace original commit info
         $commits[$index]= $newcommit;
@@ -105,39 +108,24 @@
     }
 
     /**
-     * Extract title out of message
-     *
-     * @param   string message
-     * @return  string
-     */
-    private function titleIn($message) {
-      if (FALSE !== ($pos= strpos($message, "\n"))) {
-        return substr($message, 0, $pos);
-      }
-
-      return $message;
-    }
-
-    /**
      * Add commit to rss
      *
      * @param xml.rdf.RDFNewsFeed $feed
      * @param array $commit
      */
     private function addCommitTo(RDFNewsFeed $feed, $commit) {
-      $commit['commit']['title']= $this->titleIn($commit['commit']['message']);
-      $commit= $this->prepareCommit($commit);
-      Logger::getInstance()->getCategory()->debug('Processing', $commit);
+      // $commit= $this->prepareCommit($commit);
+      Logger::getInstance()->getCategory()->debug('Processing', new GitHubCommitView($commit));
 
       $feed->addItem(
-        $commit['commit']['title'],
+        $commit->getTitle(),
         sprintf('https://github.com/%s/%s/commit/%s',
           $this->owner,
           $this->repo,
-          $commit['sha']
+          $commit->getSha()
         ),
-        $this->renderCommitDetails($commit),
-        new Date($commit['author']['date'])
+        $this->renderCommitDetails(new GitHubCommitView($commit)),
+        new Date($commit->getCommit()['author']['date'])
       );
     }
 
@@ -156,30 +144,5 @@
       );
     }
 
-    /**
-     * Prepare commit
-     *
-     * @param   type name
-     * @return  type
-     * @throws  type description
-     */
-    private function prepareCommit($commit) {
-      foreach ($commit['files'] as $index => $file) {
-        $lines= array();
-        foreach (explode("\n", $file['patch']) as $line) {
-          if ('-' == $line{0}) {
-            $lines[]= array('mode' => 'red', 'content' => $line);
-          } else if ('+' == $line{0}) {
-            $lines[]= array('mode' => 'green', 'content' => $line);
-          } else {
-            $lines[]= array('content' => $line);
-          }
-        }
-
-        $commit['files'][$index]['patchlines']= $lines;
-      }
-
-      return $commit;
-    }
   }
 ?>

@@ -33,7 +33,7 @@
      * @throws  lang.ElementNotFoundException for 404 response
      * @throws  lang.IllegalStateException for non-200 response
      */
-    private function apiRequest(RestRequest $req) {
+    private function apiRequest(RestRequest $req, $hint= NULL) {
       $resp= $this->client()->execute($req);
 
       if (HttpConstants::STATUS_NOT_FOUND == $resp->status()) {
@@ -44,7 +44,7 @@
         throw new IllegalStateException('Could not fetch list of commits.');
       }
 
-      return $resp->data();
+      return $resp->data($hint);
     }
     
     /**
@@ -63,7 +63,7 @@
         $req->addParameter('since', $since->toString(DATE_ISO8601));
       }
 
-      return $this->apiRequest($req);
+      return $this->apiRequest($req, 'name.kiesel.github.dto.GitHubCommit[]');
     }
 
     /**
@@ -80,7 +80,7 @@
       $req->addSegment('repo', $repo);
       $req->addSegment('sha', $sha);
 
-      return $this->apiRequest($req);
+      return $this->apiRequest($req, 'name.kiesel.github.dto.GitHubCommit');
     }
   }
 ?>
