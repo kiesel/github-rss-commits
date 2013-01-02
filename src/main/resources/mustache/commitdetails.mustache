@@ -9,17 +9,20 @@ committed by <a href="https://github.com/{{committer.login}}">{{commit.committer
 {{#haveFiles}}
 <h2>Files</h2>
 {{/haveFiles}}
+<ul>
 {{#files}}
-  <h3><a href="{{raw_url}}">{{filename}}</a></h3>
-  <p>{{additions}} additions, {{deletions}} deletions.</p>
-  <pre>
-    {{#lines}}{{!
-      }}{{#mode}}<font color="{{mode}}">{{content}}</font>{{/mode}}{{!
-      }}{{^mode}}{{content}}{{/mode}}
-    {{/lines}}
-  </pre>
-  <hr/>
+  <li>
+    <h3><a href="{{raw_url}}">{{filename}}</a></h3>
+    <p>{{additions}} additions, {{deletions}} deletions.</p>
+    <pre>
+      {{#lines}}{{!
+        }}{{#mode}}<font color="{{mode}}">{{content}}</font>{{/mode}}{{!
+        }}{{^mode}}{{content}}{{/mode}}
+      {{/lines}}
+    </pre>
+  </li>
 {{/files}}
+</ul>
 {{^files}}
 No files have been changed.
 {{/files}}

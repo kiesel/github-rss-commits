@@ -123,18 +123,20 @@
 
       $api= new GitHubApiFacade();
       $api->setOAuth($this->oauth);
-      $commits= $api->commitsForRepository(
-        $this->owner, 
-        $this->repo, 
-        DateUtil::addDays(Date::now(), -7)
-      );
-      Logger::getInstance()->getCategory()->debug($commits);
+
+      // Fetch information for master branch
+      $branch= $api->referenceByName($this->owner, $this->repo, 'heads/master');
+      $this->cat->info($branch);
+
+      // Fetch commits on master branch
+      $commits= $api->commitsBySha($this->owner, $this->repo, $branch['object']['sha']);
+
+      // Enrich all commits
       foreach ($commits as $index => $commit) {
         $newcommit= $api->commitBySha($this->owner, $this->repo, $commit->getSha());
 
         // Replace original commit info
         $commits[$index]= $newcommit;
-        break;
       }
 
       $tree= $this->commitsToRss($commits);
