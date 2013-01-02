@@ -59,6 +59,22 @@
 
       return $resp->data($hint);
     }
+
+    /**
+     * Fetch references
+     *
+     * @param   type name
+     * @return  type
+     * @throws  type description
+     */
+    public function referenceByName($owner, $repo, $name) {
+      $req= new RestRequest('/repos/{owner}/{repo}/git/refs/{ref}');
+      $req->addSegment('owner', $owner);
+      $req->addSegment('repo', $repo);
+      $req->addSegment('ref', $name);
+
+      return $this->apiRequest($req);
+    }
     
     /**
      * Fetch commits for given repo
@@ -66,7 +82,7 @@
      * @param  string $owner
      * @param  string $repo 
      * @param  util.Date $since default NULL
-     * @return var
+     * @return name.kiesel.github.dto.GitHubCommit[]
      */
     public function commitsForRepository($owner, $repo, Date $since= NULL) {
       $req= new RestRequest('/repos/{owner}/{repo}/commits');
@@ -85,7 +101,7 @@
      * @param string owner
      * @param string repo
      * @param string sha
-     * @return webservices.rest.RestResponse
+     * @return name.kiesel.github.dto.GitHubCommit
      */
     public function commitBySha($owner, $repo, $sha) {
       $req= new RestRequest('/repos/{owner}/{repo}/commits/{sha}');
@@ -94,6 +110,24 @@
       $req->addSegment('sha', $sha);
 
       return $this->apiRequest($req, 'name.kiesel.github.dto.GitHubCommit');
+    }
+
+    /**
+     * Retrieve all commits starting from given SHA
+     *
+     * @param string owner
+     * @param string repo
+     * @param string sha
+     * @return name.kiesel.github.dto.GitHubCommit[]
+     */
+    public function commitsBySha($owner, $repo, $sha, $perPage= 10) {
+      $req= new RestRequest('/repos/{owner}/{repo}/commits');
+      $req->addSegment('owner', $owner);
+      $req->addSegment('repo', $repo);
+      $req->addParameter('sha', $sha);
+      $req->addParameter('per_page', $perPage);
+
+      return $this->apiRequest($req, 'name.kiesel.github.dto.GitHubCommit[]');
     }
   }
 ?>
