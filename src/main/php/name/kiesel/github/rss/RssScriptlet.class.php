@@ -8,7 +8,10 @@
     'lang.ResourceProvider',
     'name.kiesel.github.GitHubApiFacade',
     'name.kiesel.github.mustache.GitHubCommitView',
+    'security.oauth2.OAuth2Client',
+    'security.oauth2.GithubOAuth2Provider',
     'scriptlet.HttpScriptlet',
+    'scriptlet.Cookie',
     'util.Date',
     'util.DateUtil',
     'xml.rdf.RDFNewsFeed',
@@ -21,8 +24,12 @@
    *
    */
   class RssScriptlet extends HttpScriptlet {
-    private $owner = NULL;
-    private $repo  = NULL;
+    private $owner    = NULL;
+    private $repo     = NULL;
+
+    private static $OAUTH_SCOPE = array();
+    private $oauth    = NULL;
+    private $cat      = NULL;
 
     /**
      * Constructor
@@ -31,6 +38,7 @@
     public function __construct() {
       // HACK:
       require_once($_SERVER['DOCUMENT_ROOT'].'/../vendor/autoload.php');
+      $this->cat= Logger::getInstance()->getCategory();
     }
 
     /**
@@ -55,16 +63,66 @@
     }
 
     /**
+     * Perform OAuth login
+     *
+     * @param   scriptlet.HttpScriptletRequest request
+     * @param   scriptlet.HttpScriptletResponse response
+     * @return  bool
+     */
+    private function oauthLogin($request, $response) {
+      $prop= PropertyManager::getInstance()->getProperties('oauth2');
+
+      $this->oauth= new OAuth2Client(new GithubOAuth2Provider());
+      $this->oauth->setClientId($prop->readString('oauth', 'clientId'));
+      $this->oauth->setClientSecret($prop->readString('oauth', 'clientSecret'));
+      // $this->oauth->setTrace($this->cat);
+
+      if ($request->hasCookie('token')) {
+        $this->oauth->setAccessTokenRaw($request->getCookie('token')->getValue());
+        $this->cat->info('Received oauth token', $this->oauth->getAccessToken());
+        return TRUE;
+      }
+
+      if ($request->hasParam('code')) {
+        $token= $this->oauth->authenticate($request->getParam('code'));
+        $this->cat->info('OAuth2 Stage 3: Received oauth token', $token);
+
+        // Set cookie w/ oauth information, valid until in a year...
+        $response->setCookie(new Cookie('token', $this->oauth->getAccessToken(), DateUtil::addMonths(Date::now(), 12)));
+
+        // Redirect to same URL w/o code parameter (enable clean page refresh)
+        $url= $request->getUrl();
+        $url->removeParam('code');
+
+        $this->cat->info('OAuth2 Stage 2: Processed code, redirecting to', $url->getURL());
+        $response->sendRedirect($url->getURL());
+
+        return FALSE;
+      }
+
+      // No oauth information, yet - redirect...
+      $this->oauth->setRedirectUri($request->getURL()->getURL());
+      $url= $this->oauth->createAuthURL(self::$OAUTH_SCOPE);
+      $this->cat->info('OAuth2 Stage 1: No oauth information, redirecting to', $url);
+      $response->sendRedirect($url);
+      return FALSE;
+    }
+
+    /**
      * Perform GET request
      *
      * @param   scriptlet.HttpScriptletRequest
      * @param   scriptlet.HttpScriptletResponse
      */
     public function doGet($request, $response) {
-
+      $this->cat->mark();
       $this->parseOwnerRepoFromURL($request->getURL());
 
+      // Perform OAuth2 login...
+      if (FALSE === $this->oauthLogin($request, $response)) return;
+
       $api= new GitHubApiFacade();
+      $api->setOAuth($this->oauth);
       $commits= $api->commitsForRepository(
         $this->owner, 
         $this->repo, 

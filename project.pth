@@ -1,2 +1,2 @@
 src/main/php
-src/main/resources/
+vendor/xp-forge/oauth/src/main/php/

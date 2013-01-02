@@ -1,5 +1,13 @@
 {
-    "require": {
-        "mustache/mustache": "2.0.*"
+  "name": "kiesel/github-rss-commits",
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/kiesel/oauth"
     }
+  ],
+  "require": {
+      "mustache/mustache": "2.0.*",
+      "xp-forge/oauth": "dev-master"
+  }
 }

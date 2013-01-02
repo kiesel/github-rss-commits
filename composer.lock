@@ -1,5 +1,5 @@
 {
-    "hash": "75daac2f48baa840cc78beda45c07dd8",
+    "hash": "53345bedcd38776b1bfe8a391d544966",
     "packages": [
         {
             "name": "mustache/mustache",
@@ -43,6 +43,18 @@
                 "templating",
                 "mustache"
             ]
+        },
+        {
+            "name": "xp-forge/oauth",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/kiesel/oauth",
+                "reference": "0533a21a8bcaab391a2ac8930c99e20537701802"
+            },
+            "time": "2013-01-02 06:10:48",
+            "type": "library",
+            "installation-source": "source"
         }
     ],
     "packages-dev": null,
@@ -50,7 +62,7 @@
 
     ],
     "minimum-stability": "stable",
-    "stability-flags": [
-
-    ]
+    "stability-flags": {
+        "xp-forge/oauth": 20
+    }
 }

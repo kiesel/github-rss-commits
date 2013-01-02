@@ -13,6 +13,7 @@
   );    
 
   class GitHubApiFacade extends Object {
+    private $oauth  = NULL;
 
     /**
      * Fetch client
@@ -26,6 +27,15 @@
     }
 
     /**
+     * Set oauth client
+     *
+     * @param   security.oauth2.OAuth2Client oauth
+     */
+    public function setOAuth(OAuth2Client $oauth) {
+      $this->oauth= $oauth;
+    }
+
+    /**
      * Perform API request
      *
      * @param   webservices.rest.RestRequest req
@@ -34,6 +44,9 @@
      * @throws  lang.IllegalStateException for non-200 response
      */
     private function apiRequest(RestRequest $req, $hint= NULL) {
+      if ($this->oauth instanceof OAuth2Client) {
+        $req->addHeader($this->oauth->getAuthorization());
+      }
       $resp= $this->client()->execute($req);
 
       if (HttpConstants::STATUS_NOT_FOUND == $resp->status()) {
