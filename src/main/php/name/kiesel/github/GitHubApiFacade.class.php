@@ -9,11 +9,14 @@
     'webservices.rest.RestRequest',
     'util.Date',
     'lang.ElementNotFoundException',
-    'util.log.Logger'
+    'util.log.Traceable'
   );    
 
-  class GitHubApiFacade extends Object {
-    private $oauth  = NULL;
+  class GitHubApiFacade extends Object implements Traceable {
+    private $oauth          = NULL;
+    private $cat            = NULL;
+    private $callsAvailable = NULL;
+    private $callsRemaining = NULL;
 
     /**
      * Fetch client
@@ -22,8 +25,17 @@
      */
     private function client() {
       $client= new RestClient('https://api.github.com/');
-      $client->setTrace(Logger::getInstance()->getCategory($this->getClassName()));
+      $this->cat && $client->setTrace($this->cat);
       return $client;
+    }
+
+    /**
+     * Set log category
+     *
+     * @param   util.log.LogCategory cat default NULL
+     */
+    public function setTrace($cat= NULL) {
+      $this->cat= $cat;
     }
 
     /**
@@ -33,6 +45,24 @@
      */
     public function setOAuth(OAuth2Client $oauth) {
       $this->oauth= $oauth;
+    }
+
+    /**
+     * Retrieve total available calls
+     *
+     * @return  int
+     */
+    public function callsAvailable() {
+      return $this->callsAvailable;
+    }
+
+    /**
+     * Retrieve calls remaining
+     *
+     * @return  int
+     */
+    public function callsRemaining() {
+      return $this->callsRemaining;
     }
 
     /**
@@ -47,7 +77,13 @@
       if ($this->oauth instanceof OAuth2Client) {
         $req->addHeader($this->oauth->getAuthorization());
       }
+      $this->cat && $this->cat->info($this->getClassName(), '~ calling ', $req->getTarget());
+
       $resp= $this->client()->execute($req);
+
+      // Check GitHub api call limits
+      $this->callsAvailable= $resp->header('X-RateLimit-Limit');
+      $this->callsRemaining= $resp->header('X-RateLimit-Remaining');
 
       if (HttpConstants::STATUS_NOT_FOUND == $resp->status()) {
         throw new ElementNotFoundException('No commits.');
@@ -58,6 +94,14 @@
       }
 
       return $resp->data($hint);
+    }
+
+    /**
+     * Dump api status to log
+     *
+     */
+    public function dumpApiStatus() {
+      $this->cat && $this->cat->info($this->getClassName(), 'Call limit:', $this->callsAvailable, '- calls remaining:', $this->callsRemaining);
     }
 
     /**
